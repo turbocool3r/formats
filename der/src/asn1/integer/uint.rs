@@ -22,7 +22,7 @@ macro_rules! impl_encoding_traits {
                     const UNSIGNED_HEADROOM: usize = 1;
 
                     let mut buf = [0u8; (Self::BITS as usize / 8) + UNSIGNED_HEADROOM];
-                    let max_length = u32::from(header.length) as usize;
+                    let max_length = usize::from(header.length);
 
                     if max_length == 0 {
                         return Err(Tag::Integer.length_error());
@@ -330,7 +330,7 @@ where
 #[inline]
 pub(crate) fn encoded_len(bytes: &[u8]) -> Result<Length> {
     let bytes = strip_leading_zeroes(bytes);
-    Length::try_from(bytes.len())? + u8::from(needs_leading_zero(bytes))
+    Length::from(bytes.len()) + u8::from(needs_leading_zero(bytes))
 }
 
 /// Strip the leading zeroes from the given byte slice

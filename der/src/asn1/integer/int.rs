@@ -18,7 +18,7 @@ macro_rules! impl_encoding_traits {
 
                 fn decode_value<R: Reader<'a>>(reader: &mut R, header: Header) -> $crate::Result<Self> {
                     let mut buf = [0u8; Self::BITS as usize / 8];
-                    let max_length = u32::from(header.length) as usize;
+                    let max_length = usize::from(header.length);
 
                     if max_length == 0 {
                         return Err(Tag::Integer.length_error());
@@ -328,8 +328,8 @@ fn decode_to_array<const N: usize>(bytes: &[u8]) -> Result<[u8; N]> {
             Ok(output)
         }
         None => {
-            let expected_len = Length::try_from(N)?;
-            let actual_len = Length::try_from(bytes.len())?;
+            let expected_len = Length::from(N);
+            let actual_len = Length::from(bytes.len());
 
             Err(ErrorKind::Incomplete {
                 expected_len,
@@ -351,7 +351,7 @@ where
 /// Get the encoded length for the given **negative** integer serialized as bytes.
 #[inline]
 fn negative_encoded_len(bytes: &[u8]) -> Result<Length> {
-    Length::try_from(strip_leading_ones(bytes).len())
+    Ok(Length::from(strip_leading_ones(bytes).len()))
 }
 
 /// Strip the leading all-ones bytes from the given byte slice.

@@ -62,7 +62,7 @@ impl<'a> SliceReader<'a> {
         } else {
             self.bytes
                 .as_slice()
-                .get(self.position.try_into()?..)
+                .get(self.position.into()..)
                 .ok_or_else(|| Error::incomplete(self.input_len()))
         }
     }
@@ -113,7 +113,7 @@ impl<'a> Reader<'a> for SliceReader<'a> {
             return Err(self.error(ErrorKind::Failed));
         }
 
-        match self.remaining()?.get(..len.try_into()?) {
+        match self.remaining()?.get(..len.into()) {
             Some(result) => {
                 self.position = (self.position + len)?;
                 Ok(result)

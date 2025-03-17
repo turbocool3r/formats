@@ -30,7 +30,7 @@ impl<'a> BytesRef<'a> {
     /// is shorter than `Length::max()`.
     pub fn new(slice: &'a [u8]) -> Result<Self> {
         Ok(Self {
-            length: Length::try_from(slice.len())?,
+            length: Length::from(slice.len()),
             inner: slice,
         })
     }
@@ -54,7 +54,7 @@ impl<'a> BytesRef<'a> {
     pub fn prefix(self, length: Length) -> Result<Self> {
         let inner = self
             .as_slice()
-            .get(..usize::try_from(length)?)
+            .get(..usize::from(length))
             .ok_or_else(|| Error::incomplete(self.length))?;
 
         Ok(Self { length, inner })
@@ -103,7 +103,7 @@ impl DerOrd for BytesRef<'_> {
 impl<'a> From<StrRef<'a>> for BytesRef<'a> {
     fn from(s: StrRef<'a>) -> BytesRef<'a> {
         let bytes = s.as_bytes();
-        debug_assert_eq!(bytes.len(), usize::try_from(s.length).expect("overflow"));
+        debug_assert_eq!(bytes.len(), usize::from(s.length));
 
         BytesRef {
             inner: bytes,
@@ -141,7 +141,7 @@ impl<'a> arbitrary::Arbitrary<'a> for BytesRef<'a> {
         let length = u.arbitrary()?;
         Ok(Self {
             length,
-            inner: u.bytes(u32::from(length) as usize)?,
+            inner: u.bytes(usize::from(length))?,
         })
     }
 

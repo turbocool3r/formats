@@ -55,7 +55,7 @@ pub trait Encode {
             .into());
         }
 
-        actual_len.try_into()
+        Ok(actual_len.into())
     }
 
     /// Encode this type as DER, returning a byte vector.

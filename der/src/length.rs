@@ -7,9 +7,6 @@ use core::{
     ops::{Add, Sub},
 };
 
-/// Maximum length as a `u32` (256 MiB).
-const MAX_U32: u32 = 0xfff_ffff;
-
 /// Octet identifying an indefinite length as described in X.690 Section
 /// 8.1.3.6.1:
 ///
@@ -18,10 +15,8 @@ const MAX_U32: u32 = 0xfff_ffff;
 const INDEFINITE_LENGTH_OCTET: u8 = 0b10000000; // 0x80
 
 /// ASN.1-encoded length.
-///
-/// Maximum length is defined by the [`Length::MAX`] constant (256 MiB).
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct Length(u32);
+pub struct Length(usize);
 
 impl Length {
     /// Length of `0`
@@ -30,18 +25,16 @@ impl Length {
     /// Length of `1`
     pub const ONE: Self = Self(1);
 
-    /// Maximum length currently supported: 256 MiB
-    pub const MAX: Self = Self(MAX_U32);
+    /// Maximum length (`usize::MAX`)
+    pub const MAX: Self = Self(usize::MAX);
 
     /// Maximum number of octets in a DER encoding of a [`Length`] using the
     /// rules implemented by this crate.
-    pub(crate) const MAX_SIZE: usize = 5;
+    pub(crate) const MAX_SIZE: usize = 11;
 
-    /// Create a new [`Length`] for any value which fits inside of a [`u16`].
-    ///
-    /// This function is const-safe and therefore useful for [`Length`] constants.
-    pub const fn new(value: u16) -> Self {
-        Self(value as u32)
+    /// Create a new [`Length`] for any value which fits inside of a [`usize`].
+    pub const fn new(value: usize) -> Self {
+        Self(value)
     }
 
     /// Is this length equal to zero?
@@ -78,12 +71,11 @@ impl Length {
     /// >    most significant bit;
     /// > c) the value 11111111₂ shall not be used.
     fn initial_octet(self) -> Option<u8> {
-        match self.0 {
-            0x80..=0xFF => Some(0x81),
-            0x100..=0xFFFF => Some(0x82),
-            0x10000..=0xFFFFFF => Some(0x83),
-            0x1000000..=MAX_U32 => Some(0x84),
-            _ => None,
+        if self.0 >= 0x80 {
+            #[allow(clippy::cast_possible_truncation)]
+            Some(((self.0.ilog2() / 8) as u8 + 1) | 0x80)
+        } else {
+            None
         }
     }
 }
@@ -95,7 +87,7 @@ impl Add for Length {
         self.0
             .checked_add(other.0)
             .ok_or_else(|| ErrorKind::Overflow.into())
-            .and_then(TryInto::try_into)
+            .map(Self)
     }
 }
 
@@ -111,7 +103,7 @@ impl Add<u16> for Length {
     type Output = Result<Self>;
 
     fn add(self, other: u16) -> Result<Self> {
-        self + Length::from(other)
+        self + Length::try_from(other)?
     }
 }
 
@@ -127,7 +119,7 @@ impl Add<usize> for Length {
     type Output = Result<Self>;
 
     fn add(self, other: usize) -> Result<Self> {
-        self + Length::try_from(other)?
+        self + Length::from(other)
     }
 }
 
@@ -146,7 +138,7 @@ impl Sub for Length {
         self.0
             .checked_sub(other.0)
             .ok_or_else(|| ErrorKind::Overflow.into())
-            .and_then(TryInto::try_into)
+            .map(Self)
     }
 }
 
@@ -164,45 +156,78 @@ impl From<u8> for Length {
     }
 }
 
-impl From<u16> for Length {
-    fn from(len: u16) -> Length {
-        Length(len.into())
+impl From<usize> for Length {
+    fn from(len: usize) -> Length {
+        Length(len)
     }
 }
 
-impl From<Length> for u32 {
-    fn from(length: Length) -> u32 {
-        length.0
+impl TryFrom<u16> for Length {
+    type Error = Error;
+
+    fn try_from(value: u16) -> Result<Self> {
+        #[allow(clippy::unnecessary_fallible_conversions)]
+        usize::try_from(value)
+            .map_err(|_| ErrorKind::Overflow.into())
+            .map(Self)
     }
 }
 
 impl TryFrom<u32> for Length {
     type Error = Error;
 
-    fn try_from(len: u32) -> Result<Length> {
-        if len <= Self::MAX.0 {
-            Ok(Length(len))
-        } else {
-            Err(ErrorKind::Overflow.into())
-        }
+    fn try_from(value: u32) -> Result<Self> {
+        usize::try_from(value)
+            .map_err(|_| ErrorKind::Overflow.into())
+            .map(Self)
     }
 }
 
-impl TryFrom<usize> for Length {
+impl TryFrom<u64> for Length {
     type Error = Error;
 
-    fn try_from(len: usize) -> Result<Length> {
-        u32::try_from(len)
-            .map_err(|_| ErrorKind::Overflow)?
-            .try_into()
+    fn try_from(value: u64) -> Result<Self> {
+        usize::try_from(value)
+            .map_err(|_| ErrorKind::Overflow.into())
+            .map(Self)
     }
 }
 
-impl TryFrom<Length> for usize {
+impl TryFrom<Length> for u8 {
     type Error = Error;
 
-    fn try_from(len: Length) -> Result<usize> {
+    fn try_from(len: Length) -> Result<u8> {
         len.0.try_into().map_err(|_| ErrorKind::Overflow.into())
+    }
+}
+
+impl TryFrom<Length> for u16 {
+    type Error = Error;
+
+    fn try_from(len: Length) -> Result<u16> {
+        len.0.try_into().map_err(|_| ErrorKind::Overflow.into())
+    }
+}
+
+impl TryFrom<Length> for u32 {
+    type Error = Error;
+
+    fn try_from(len: Length) -> Result<u32> {
+        len.0.try_into().map_err(|_| ErrorKind::Overflow.into())
+    }
+}
+
+impl TryFrom<Length> for u64 {
+    type Error = Error;
+
+    fn try_from(len: Length) -> Result<u64> {
+        len.0.try_into().map_err(|_| ErrorKind::Overflow.into())
+    }
+}
+
+impl From<Length> for usize {
+    fn from(length: Length) -> usize {
+        length.0
     }
 }
 
@@ -216,17 +241,17 @@ impl<'a> Decode<'a> for Length {
             len if len < INDEFINITE_LENGTH_OCTET => Ok(len.into()),
             INDEFINITE_LENGTH_OCTET => Err(ErrorKind::IndefiniteLength.into()),
             // 1-4 byte variable-sized length prefix
-            tag @ 0x81..=0x84 => {
+            tag @ 0x81..=0x8a => {
                 let nbytes = tag.checked_sub(0x80).ok_or(ErrorKind::Overlength)? as usize;
-                debug_assert!(nbytes <= 4);
+                debug_assert!(nbytes <= 10);
 
-                let mut decoded_len = 0u32;
+                let mut decoded_len = 0usize;
                 for _ in 0..nbytes {
                     decoded_len = decoded_len.checked_shl(8).ok_or(ErrorKind::Overflow)?
-                        | u32::from(reader.read_byte()?);
+                        | usize::from(reader.read_byte()?);
                 }
 
-                let length = Length::try_from(decoded_len)?;
+                let length = Length::from(decoded_len);
 
                 // X.690 Section 10.1: DER lengths must be encoded with a minimum
                 // number of octets
@@ -246,14 +271,11 @@ impl<'a> Decode<'a> for Length {
 
 impl Encode for Length {
     fn encoded_len(&self) -> Result<Length> {
-        match self.0 {
-            0..=0x7F => Ok(Length(1)),
-            0x80..=0xFF => Ok(Length(2)),
-            0x100..=0xFFFF => Ok(Length(3)),
-            0x10000..=0xFFFFFF => Ok(Length(4)),
-            0x1000000..=MAX_U32 => Ok(Length(5)),
-            _ => Err(ErrorKind::Overflow.into()),
-        }
+        Ok(Self(if self.0 < 0x80 {
+            1
+        } else {
+            (self.0.ilog2() / 8 + 2) as usize
+        }))
     }
 
     fn encode(&self, writer: &mut impl Writer) -> Result<()> {
@@ -263,7 +285,11 @@ impl Encode for Length {
 
                 // Strip leading zeroes
                 match self.0.to_be_bytes() {
-                    [0, 0, 0, byte] => writer.write_byte(byte),
+                    [0, 0, 0, 0, 0, 0, 0, byte] => writer.write_byte(byte),
+                    [0, 0, 0, 0, 0, 0, bytes @ ..] => writer.write(&bytes),
+                    [0, 0, 0, 0, 0, bytes @ ..] => writer.write(&bytes),
+                    [0, 0, 0, 0, bytes @ ..] => writer.write(&bytes),
+                    [0, 0, 0, bytes @ ..] => writer.write(&bytes),
                     [0, 0, bytes @ ..] => writer.write(&bytes),
                     [0, bytes @ ..] => writer.write(&bytes),
                     bytes => writer.write(&bytes),
@@ -301,11 +327,11 @@ impl fmt::Display for Length {
 #[cfg(feature = "arbitrary")]
 impl<'a> arbitrary::Arbitrary<'a> for Length {
     fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
-        Ok(Self(u.int_in_range(0..=MAX_U32)?))
+        u.arbitrary().map(Self)
     }
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {
-        u32::size_hint(depth)
+        usize::size_hint(depth)
     }
 }
 
@@ -439,7 +465,7 @@ mod tests {
         );
 
         assert_eq!(
-            Length::from(0x100u16),
+            Length::try_from(0x100u16).unwrap(),
             Length::from_der(&[0x82, 0x01, 0x00]).unwrap()
         );
 
@@ -447,11 +473,16 @@ mod tests {
             Length::try_from(0x10000u32).unwrap(),
             Length::from_der(&[0x83, 0x01, 0x00, 0x00]).unwrap()
         );
+
+        assert_eq!(
+            Length::try_from(0x100000000u64).unwrap(),
+            Length::from_der(&[0x85, 0x01, 0x00, 0x00, 0x00, 0x00]).unwrap()
+        );
     }
 
     #[test]
     fn encode() {
-        let mut buffer = [0u8; 4];
+        let mut buffer = [0u8; 11];
 
         assert_eq!(&[0x00], Length::ZERO.encode_to_slice(&mut buffer).unwrap());
 
@@ -472,12 +503,23 @@ mod tests {
 
         assert_eq!(
             &[0x82, 0x01, 0x00],
-            Length::from(0x100u16).encode_to_slice(&mut buffer).unwrap()
+            Length::try_from(0x100u16)
+                .unwrap()
+                .encode_to_slice(&mut buffer)
+                .unwrap()
         );
 
         assert_eq!(
             &[0x83, 0x01, 0x00, 0x00],
             Length::try_from(0x10000u32)
+                .unwrap()
+                .encode_to_slice(&mut buffer)
+                .unwrap()
+        );
+
+        assert_eq!(
+            &[0x85, 0x01, 0x00, 0x00, 0x00, 0x00],
+            Length::try_from(0x100000000u64)
                 .unwrap()
                 .encode_to_slice(&mut buffer)
                 .unwrap()

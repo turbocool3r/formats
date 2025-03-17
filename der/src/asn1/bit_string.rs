@@ -42,7 +42,7 @@ impl<'a> BitStringRef<'a> {
 
         let inner = BytesRef::new(bytes).map_err(|_| Self::TAG.length_error())?;
 
-        let bit_length = usize::try_from(inner.len())?
+        let bit_length = usize::from(inner.len())
             .checked_mul(8)
             .and_then(|n| n.checked_sub(usize::from(unused_bits)))
             .ok_or(ErrorKind::Overflow)?;

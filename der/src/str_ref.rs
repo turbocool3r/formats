@@ -20,7 +20,7 @@ impl<'a> StrRef<'a> {
     pub fn new(s: &'a str) -> Result<Self> {
         Ok(Self {
             inner: s,
-            length: Length::try_from(s.len())?,
+            length: Length::from(s.len()),
         })
     }
 

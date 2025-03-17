@@ -392,7 +392,7 @@ impl Encode for Tag {
         let length = if number <= 30 {
             Length::ONE
         } else {
-            Length::new(number.ilog2() as u16 / 7 + 2)
+            Length::from(number.ilog2() as usize / 7 + 2)
         };
 
         Ok(length)

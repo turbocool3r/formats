@@ -33,13 +33,13 @@ impl Salt {
 
         Ok(Self {
             inner,
-            length: Length::new(slice.len() as u16),
+            length: Length::from(slice.len()),
         })
     }
 
     /// Borrow the salt data as a byte slice.
     pub fn as_bytes(&self) -> &[u8] {
-        let length = usize::try_from(self.length).expect("should be less than Self::MAX_LEN");
+        let length = self.length.into();
         &self.inner[..length]
     }
 
@@ -59,7 +59,7 @@ impl<'a> DecodeValue<'a> for Salt {
     type Error = Error;
 
     fn decode_value<R: Reader<'a>>(reader: &mut R, header: Header) -> Result<Self> {
-        let length = usize::try_from(header.length)?;
+        let length = header.length.into();
 
         if length > Self::MAX_LEN {
             return Err(Self::TAG.length_error());

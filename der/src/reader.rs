@@ -135,7 +135,7 @@ pub trait Reader<'r>: Sized {
     /// - `Ok(slice)` if there is sufficient data
     /// - `Err(ErrorKind::Incomplete)` if there is not enough data
     fn read_into<'o>(&mut self, buf: &'o mut [u8]) -> Result<&'o [u8], Error> {
-        let input = self.read_slice(buf.len().try_into()?)?;
+        let input = self.read_slice(buf.len().into())?;
         buf.copy_from_slice(input);
         Ok(buf)
     }

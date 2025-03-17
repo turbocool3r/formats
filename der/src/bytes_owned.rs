@@ -154,7 +154,7 @@ impl<'a> arbitrary::Arbitrary<'a> for BytesOwned {
         let length = u.arbitrary()?;
         Ok(Self {
             length,
-            inner: Box::from(u.bytes(u32::from(length) as usize)?),
+            inner: Box::from(u.bytes(usize::from(length))?),
         })
     }
 

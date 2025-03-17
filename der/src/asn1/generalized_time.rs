@@ -78,7 +78,7 @@ impl<'a> DecodeValue<'a> for GeneralizedTime {
     type Error = Error;
 
     fn decode_value<R: Reader<'a>>(reader: &mut R, header: Header) -> Result<Self> {
-        if Self::LENGTH != usize::try_from(header.length)? {
+        if Self::LENGTH != usize::from(header.length) {
             return Err(Self::TAG.value_error());
         }
 
@@ -127,7 +127,7 @@ impl<'a> DecodeValue<'a> for GeneralizedTime {
 
 impl EncodeValue for GeneralizedTime {
     fn value_len(&self) -> Result<Length> {
-        Self::LENGTH.try_into()
+        Ok(Self::LENGTH.into())
     }
 
     fn encode_value(&self, writer: &mut impl Writer) -> Result<()> {

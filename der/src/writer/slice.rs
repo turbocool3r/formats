@@ -62,7 +62,7 @@ impl<'a> SliceWriter<'a> {
         }
 
         self.bytes
-            .get(..usize::try_from(position)?)
+            .get(..usize::from(position))
             .ok_or_else(|| ErrorKind::Overlength.at(position))
     }
 
@@ -97,7 +97,7 @@ impl<'a> SliceWriter<'a> {
         let mut nested_encoder = SliceWriter::new(self.reserve(length)?);
         f(&mut nested_encoder)?;
 
-        if nested_encoder.finish()?.len() == usize::try_from(length)? {
+        if nested_encoder.finish()?.len() == usize::from(length) {
             Ok(())
         } else {
             self.error(ErrorKind::Length { tag: Tag::Sequence })
@@ -118,7 +118,7 @@ impl<'a> SliceWriter<'a> {
         let end = (self.position + len).or_else(|e| self.error(e.kind()))?;
         let slice = self
             .bytes
-            .get_mut(self.position.try_into()?..end.try_into()?)
+            .get_mut(self.position.into()..end.into())
             .ok_or_else(|| ErrorKind::Overlength.at(end))?;
 
         self.position = end;

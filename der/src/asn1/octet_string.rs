@@ -175,7 +175,7 @@ mod allocating {
 
     impl EncodeValue for OctetString {
         fn value_len(&self) -> Result<Length, Error> {
-            self.inner.len().try_into()
+            Ok(self.inner.len().into())
         }
 
         fn encode_value(&self, writer: &mut impl Writer) -> Result<(), Error> {
@@ -257,7 +257,7 @@ mod bytes {
 
     impl EncodeValue for Bytes {
         fn value_len(&self) -> Result<Length> {
-            self.len().try_into()
+            Ok(self.len().into())
         }
 
         fn encode_value(&self, writer: &mut impl Writer) -> Result<()> {
